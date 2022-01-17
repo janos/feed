@@ -6,7 +6,6 @@
 package feed_test
 
 import (
-	"context"
 	"reflect"
 	"sync"
 	"testing"
@@ -16,7 +15,7 @@ import (
 
 func TestFeed_singleMessage(t *testing.T) {
 	f := feed.NewFeed[string, int]()
-	defer f.Shutdown(context.Background())
+	defer f.Close()
 
 	got := make([]int, 0)
 
@@ -43,7 +42,7 @@ func TestFeed_singleMessage(t *testing.T) {
 
 func TestFeed_twoMessages(t *testing.T) {
 	f := feed.NewFeed[string, int]()
-	defer f.Shutdown(context.Background())
+	defer f.Close()
 
 	got := make([]int, 0)
 
@@ -77,7 +76,7 @@ func TestFeed_twoMessages(t *testing.T) {
 
 func TestFeed_multipleSubscriptions(t *testing.T) {
 	f := feed.NewFeed[string, int]()
-	defer f.Shutdown(context.Background())
+	defer f.Close()
 
 	got1 := make([]int, 0)
 	c1 := newCond()
@@ -147,7 +146,7 @@ func TestFeed_multipleSubscriptions(t *testing.T) {
 
 func TestFeed_multipleTopics(t *testing.T) {
 	f := feed.NewFeed[string, int]()
-	defer f.Shutdown(context.Background())
+	defer f.Close()
 
 	got1 := make([]int, 0)
 	c1 := newCond()
@@ -196,7 +195,7 @@ func TestFeed_multipleTopics(t *testing.T) {
 
 func TestFeed_shutdown(t *testing.T) {
 	f := feed.NewFeed[string, int]()
-	err := f.Shutdown(context.Background())
+	err := f.Close()
 	assert(t, "", err, nil)
 
 	c, cancel := f.Subscribe("topic")
@@ -211,6 +210,57 @@ func TestFeed_shutdown(t *testing.T) {
 
 	n := f.Send("topic", 25)
 	assert(t, "", n, 0)
+}
+
+func TestFeed_shutdownWithUnreadMessages(t *testing.T) {
+	f := feed.NewFeed[string, int]()
+	defer f.Close()
+
+	c, _ := f.Subscribe("topic")
+
+	n := f.Send("topic", 25)
+	assert(t, "", n, 1)
+
+	n = f.Send("topic", 42)
+	assert(t, "", n, 1)
+
+	n = f.Send("topic", 100)
+	assert(t, "", n, 1)
+
+	n = f.Send("topic", 200)
+	assert(t, "", n, 1)
+
+	m, ok := <-c
+	assert(t, "", m, 25)
+	assert(t, "", ok, true)
+
+	err := f.Close()
+	assert(t, "", err, nil)
+}
+
+func TestFeed_cancelWithUnreadMessages(t *testing.T) {
+	f := feed.NewFeed[string, int]()
+	defer f.Close()
+
+	c, cancel := f.Subscribe("topic")
+
+	n := f.Send("topic", 25)
+	assert(t, "", n, 1)
+
+	n = f.Send("topic", 42)
+	assert(t, "", n, 1)
+
+	n = f.Send("topic", 100)
+	assert(t, "", n, 1)
+
+	n = f.Send("topic", 200)
+	assert(t, "", n, 1)
+
+	m, ok := <-c
+	assert(t, "", m, 25)
+	assert(t, "", ok, true)
+
+	cancel()
 }
 
 func assert[T any](t testing.TB, message string, got, want T) {

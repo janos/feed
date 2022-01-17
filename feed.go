@@ -6,28 +6,35 @@
 package feed
 
 import (
-	"context"
 	"sync"
 )
 
+// Feed defines a set of subscriptions per topic T which receive messages sent
+// to the Feed.
 type Feed[T comparable, M any] struct {
-	channels map[T][]chan M
-	mu       sync.RWMutex
+	subscriptions map[T][]*subscription[M]
+	mu            sync.RWMutex
 
 	wg       sync.WaitGroup
 	quit     chan struct{}
 	quitOnce sync.Once
 }
 
+// NewFeed constructs new Feed with topic type T and message type M.
 func NewFeed[T comparable, M any]() *Feed[T, M] {
 	return &Feed[T, M]{
-		channels: make(map[T][]chan M, 1),
-		quit:     make(chan struct{}),
+		subscriptions: make(map[T][]*subscription[M]),
+		quit:          make(chan struct{}),
 	}
 }
 
+// Subscribe returns a channel from which messages M, that are sent to the Feed
+// on the same topic, can be read from. Message delivery is guaranteed, so the
+// channel should be read to avoid possible high number of goroutines. After
+// cancel function call, all resources ang goroutines are released even if not
+// all messages are read from channel.
 func (f *Feed[T, M]) Subscribe(topic T) (c <-chan M, cancel func()) {
-	channel := make(chan M)
+	channel := make(chan M, 1) // buffer 1 not to block on Send method
 
 	select {
 	case <-f.quit:
@@ -39,24 +46,27 @@ func (f *Feed[T, M]) Subscribe(topic T) (c <-chan M, cancel func()) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	f.channels[topic] = append(f.channels[topic], channel)
+	s := newSubscription(channel)
 
-	return channel, func() { f.unsubscribe(topic, channel) }
+	f.subscriptions[topic] = append(f.subscriptions[topic], s)
+
+	return channel, func() { f.unsubscribe(topic, s) }
 }
 
-func (f *Feed[T, M]) unsubscribe(topic T, c <-chan M) {
+func (f *Feed[T, M]) unsubscribe(topic T, s *subscription[M]) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	for i, ch := range f.channels[topic] {
-		if ch == c {
-			f.channels[topic] = append(f.channels[topic][:i], f.channels[topic][i+1:]...)
-			close(ch)
+	for i, sub := range f.subscriptions[topic] {
+		if sub == s {
+			f.subscriptions[topic] = append(f.subscriptions[topic][:i], f.subscriptions[topic][i+1:]...)
+			s.close()
 		}
 	}
 }
 
-func (f *Feed[T, M]) Shutdown(ctx context.Context) error {
+// Close terminates all subscriptions and releases acquired resources.
+func (f *Feed[T, M]) Close() error {
 	f.quitOnce.Do(func() {
 		close(f.quit)
 	})
@@ -66,46 +76,48 @@ func (f *Feed[T, M]) Shutdown(ctx context.Context) error {
 		close(done)
 	}()
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-done:
-	}
-
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	for topic, channels := range f.channels {
-		for _, c := range channels {
-			close(c)
+	for topic, subscriptions := range f.subscriptions {
+		for _, s := range subscriptions {
+			s.close()
 		}
-		f.channels[topic] = nil
+		f.subscriptions[topic] = nil
 	}
 
 	return nil
 }
 
+// Send sends a message to all sunscribed channels to topic. Messages will be
+// delivered to subscribers when each of them is ready to receive it, without
+// blocking this method call. The returned integer is the number of subscribers
+// that should receive the message.
 func (f *Feed[T, M]) Send(topic T, message M) (n int) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
-	for _, c := range f.channels[topic] {
+	for _, s := range f.subscriptions[topic] {
 		// try to send message to the channel
 		select {
-		case c <- message:
+		case s.channel <- message:
+		case <-s.quit:
+			return
 		case <-f.quit:
 			return
 		default:
 			// if channel is blocked,
 			// wait in goroutine to send the message
-			c := c
+			s := s
 
 			f.wg.Add(1)
 			go func() {
 				defer f.wg.Done()
 
 				select {
-				case c <- message:
+				case s.channel <- message:
+				case <-s.quit:
+					return
 				case <-f.quit:
 					return
 				}
@@ -116,4 +128,25 @@ func (f *Feed[T, M]) Send(topic T, message M) (n int) {
 	}
 
 	return n
+}
+
+type subscription[M any] struct {
+	channel  chan M
+	quitOnce sync.Once
+	quit     chan struct{}
+	wg       sync.WaitGroup
+}
+
+func newSubscription[M any](channel chan M) *subscription[M] {
+	return &subscription[M]{
+		channel: channel,
+		quit:    make(chan struct{}),
+	}
+}
+
+func (s *subscription[M]) close() {
+	s.quitOnce.Do(func() {
+		close(s.quit)
+	})
+	s.wg.Wait()
 }
