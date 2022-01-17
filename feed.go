@@ -21,19 +21,20 @@ type Feed[T comparable, M any] struct {
 
 func NewFeed[T comparable, M any]() *Feed[T, M] {
 	return &Feed[T, M]{
-		channels: make(map[T][]chan M),
+		channels: make(map[T][]chan M, 1),
 		quit:     make(chan struct{}),
 	}
 }
 
 func (f *Feed[T, M]) Subscribe(topic T) (c <-chan M, cancel func()) {
+	channel := make(chan M)
+
 	select {
 	case <-f.quit:
-		return nil, nil
+		close(channel)
+		return channel, func() {}
 	default:
 	}
-
-	channel := make(chan M)
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -89,18 +90,27 @@ func (f *Feed[T, M]) Send(topic T, message M) (n int) {
 	defer f.mu.RUnlock()
 
 	for _, c := range f.channels[topic] {
-		c := c
+		// try to send message to the channel
+		select {
+		case c <- message:
+		case <-f.quit:
+			return
+		default:
+			// if channel is blocked,
+			// wait in goroutine to send the message
+			c := c
 
-		f.wg.Add(1)
-		go func() {
-			defer f.wg.Done()
+			f.wg.Add(1)
+			go func() {
+				defer f.wg.Done()
 
-			select {
-			case c <- message:
-			case <-f.quit:
-				return
-			}
-		}()
+				select {
+				case c <- message:
+				case <-f.quit:
+					return
+				}
+			}()
+		}
 
 		n++
 	}

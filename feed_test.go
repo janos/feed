@@ -194,6 +194,25 @@ func TestFeed_multipleTopics(t *testing.T) {
 	assert(t, "", got2, []int{42})
 }
 
+func TestFeed_shutdown(t *testing.T) {
+	f := feed.NewFeed[string, int]()
+	err := f.Shutdown(context.Background())
+	assert(t, "", err, nil)
+
+	c, cancel := f.Subscribe("topic")
+
+	m, ok := <-c
+	assert(t, "", m, 0)
+	assert(t, "", ok, false)
+
+	if cancel == nil {
+		t.Error("cancel function iz nil")
+	}
+
+	n := f.Send("topic", 25)
+	assert(t, "", n, 0)
+}
+
 func assert[T any](t testing.TB, message string, got, want T) {
 	t.Helper()
 
