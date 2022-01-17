@@ -15,7 +15,7 @@ import (
 )
 
 func TestFeed_singleMessage(t *testing.T) {
-	f := feed.New[string, int]()
+	f := feed.NewFeed[string, int]()
 	defer f.Shutdown(context.Background())
 
 	got := make([]int, 0)
@@ -42,7 +42,7 @@ func TestFeed_singleMessage(t *testing.T) {
 }
 
 func TestFeed_twoMessages(t *testing.T) {
-	f := feed.New[string, int]()
+	f := feed.NewFeed[string, int]()
 	defer f.Shutdown(context.Background())
 
 	got := make([]int, 0)
@@ -76,7 +76,7 @@ func TestFeed_twoMessages(t *testing.T) {
 }
 
 func TestFeed_multipleSubscriptions(t *testing.T) {
-	f := feed.New[string, int]()
+	f := feed.NewFeed[string, int]()
 	defer f.Shutdown(context.Background())
 
 	got1 := make([]int, 0)
@@ -146,7 +146,7 @@ func TestFeed_multipleSubscriptions(t *testing.T) {
 }
 
 func TestFeed_multipleTopics(t *testing.T) {
-	f := feed.New[string, int]()
+	f := feed.NewFeed[string, int]()
 	defer f.Shutdown(context.Background())
 
 	got1 := make([]int, 0)

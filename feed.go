@@ -19,14 +19,14 @@ type Feed[T comparable, M any] struct {
 	quitOnce sync.Once
 }
 
-func New[T comparable, M any]() (f *Feed[T, M]) {
+func NewFeed[T comparable, M any]() *Feed[T, M] {
 	return &Feed[T, M]{
 		channels: make(map[T][]chan M),
 		quit:     make(chan struct{}),
 	}
 }
 
-func (f *Feed[T, M]) Subscribe(topic T) (c <-chan M, stop func()) {
+func (f *Feed[T, M]) Subscribe(topic T) (c <-chan M, cancel func()) {
 	select {
 	case <-f.quit:
 		return nil, nil
@@ -91,7 +91,10 @@ func (f *Feed[T, M]) Send(topic T, message M) (n int) {
 	for _, c := range f.channels[topic] {
 		c := c
 
+		f.wg.Add(1)
 		go func() {
+			defer f.wg.Done()
+
 			select {
 			case c <- message:
 			case <-f.quit:
