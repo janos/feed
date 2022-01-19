@@ -70,11 +70,7 @@ func (f *Feed[T, M]) Close() error {
 	f.quitOnce.Do(func() {
 		close(f.quit)
 	})
-	done := make(chan struct{})
-	go func() {
-		f.wg.Wait()
-		close(done)
-	}()
+	f.wg.Wait()
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
