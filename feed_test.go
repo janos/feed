@@ -6,9 +6,11 @@
 package feed_test
 
 import (
+	"math/rand"
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	"resenje.org/feed"
 )
@@ -261,6 +263,78 @@ func TestFeed_cancelWithUnreadMessages(t *testing.T) {
 	assert(t, "", ok, true)
 
 	cancel()
+}
+
+func TestFeed_ordering(t *testing.T) {
+	f := feed.NewFeed[string, int]()
+	defer f.Close()
+
+	got := make([]int, 0)
+
+	s, cancel := f.Subscribe("topic1")
+	defer cancel()
+
+	messages := make([]int, 0)
+
+	count := 1000
+
+	for i := 0; i < count; i++ {
+		messages = append(messages, i)
+		n := f.Send("topic1", i)
+		assert(t, "", n, 1)
+	}
+
+	for i := 0; i < count; i++ {
+		got = append(got, <-s)
+	}
+
+	assert(t, "", got, messages)
+}
+
+func TestFeed_stressTest(t *testing.T) {
+	f := feed.NewFeed[string, int]()
+	defer f.Close()
+
+	count := 1000
+	lastReceived := -1
+
+	s, cancel := f.Subscribe("topic1")
+	defer cancel()
+
+	random1 := rand.New(rand.NewSource(time.Now().UnixNano()))
+	random2 := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	receiveDone := make(chan struct{})
+	go func() {
+		defer close(receiveDone)
+		for {
+			m, ok := <-s
+			if !ok {
+				return
+			}
+			if m != lastReceived+1 {
+				assert(t, "", m, lastReceived+1)
+			}
+			lastReceived = m
+			time.Sleep(time.Duration(random1.Int63n(1000)) * time.Microsecond)
+		}
+	}()
+
+	sendDone := make(chan struct{})
+	go func() {
+		defer close(sendDone)
+		for i := 0; i < count; i++ {
+			n := f.Send("topic1", i)
+			assert(t, "", n, 1)
+			time.Sleep(time.Duration(random2.Int63n(1000)) * time.Microsecond)
+		}
+	}()
+
+	<-sendDone
+
+	cancel()
+
+	<-receiveDone
 }
 
 func assert[T any](t testing.TB, message string, got, want T) {
