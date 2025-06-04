@@ -280,6 +280,9 @@ func TestUpdate_cancelWithUnreadMessages(t *testing.T) {
 	n = f.Send("topic", 200)
 	assert(t, "", n, 1)
 
+	// wait for other goroutines to send messages
+	time.Sleep(150 * time.Millisecond)
+
 	m, ok := <-c
 	assert(t, "", m, 200)
 	assert(t, "", ok, true)
@@ -303,6 +306,8 @@ func TestUpdate_latestMessage(t *testing.T) {
 	for i := 0; i < count; i++ {
 		n := f.Send("topic1", i)
 		assert(t, "", n, 1)
+		// wait for other goroutine to send message
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	assert(t, "", <-s, count-1)
