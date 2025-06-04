@@ -53,25 +53,26 @@ func Merge[T any](ctx context.Context, chans ...<-chan T) <-chan T {
 	}
 
 	// Start a goroutine to wait for all other goroutines to complete,
-	// or for the context to be cancelled, then close the out channel.
+	// then close the out channel. This goroutine also respects context cancellation.
 	go func() {
-		// Wait for all goroutines to finish or context to be cancelled.
-		// It's possible wg.Wait() finishes first, or ctx.Done() is selected first.
-		done := make(chan struct{})
+		// allOutputGoroutinesDone channel signals that wg.Wait() has completed.
+		allOutputGoroutinesDone := make(chan struct{})
 		go func() {
-			wg.Wait()
-			close(done)
+			wg.Wait()                      // Wait for all output goroutines to call wg.Done()
+			close(allOutputGoroutinesDone) // Signal completion
 		}()
 
 		select {
-		case <-done:
-			// All goroutines completed normally.
+		case <-allOutputGoroutinesDone:
+			// All output goroutines completed their work (e.g., input channels drained).
+			// It's safe to close 'out'.
 		case <-ctx.Done():
-			// Context was cancelled. Child goroutines will also see this and exit.
-			// We still wait for them to clean up to avoid potential partial writes
-			// if they were in the middle of sending to 'out'.
-			// However, since child goroutines also select on ctx.Done(),
-			// they should terminate quickly.
+			// Context was cancelled.
+			// The output goroutines are designed to detect this cancellation
+			// and will call wg.Done() upon their termination.
+			// We must wait for all of them to actually finish (i.e., for wg.Wait() to unblock)
+			// before we can safely close the 'out' channel.
+			<-allOutputGoroutinesDone // Wait for wg.Wait() to complete.
 		}
 		close(out) // Close the output channel.
 	}()
