@@ -270,12 +270,9 @@ func TestUpdate_latestMessage(t *testing.T) {
 	s, cancel := f.Subscribe("topic1")
 	defer cancel()
 
-	messages := make([]int, 0)
-
 	count := 100
 
 	for i := 0; i < count; i++ {
-		messages = append(messages, i)
 		n := f.Send("topic1", i)
 		assert(t, "", n, 1)
 	}
