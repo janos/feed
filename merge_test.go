@@ -150,7 +150,6 @@ func TestMerge_Cancellation(t *testing.T) {
 			// It might block here if the merge output is not consumed
 			// and the context is not cancelled quickly enough.
 			// However, the select in the output goroutine should pick up ctx.Done()
-			defer func() { recover() }() // In case ch1 is closed by test end
 			select {
 			case ch1 <- item2:
 			case <-time.After(500 * time.Millisecond): // Don't let this goroutine hang indefinitely
@@ -176,9 +175,6 @@ func TestMerge_Cancellation(t *testing.T) {
 			select {
 			case _, ok := <-merged:
 				if !ok {
-					if readCount > 1 { // Should not have received more than one if item2 was blocked by slow consumer + cancel
-						// This condition is a bit tricky. The goal is that cancellation unblocks.
-					}
 					break loop // Channel closed, success
 				}
 				readCount++

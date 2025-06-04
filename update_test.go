@@ -15,7 +15,11 @@ import (
 
 func TestUpdate_singleMessage(t *testing.T) {
 	f := feed.NewUpdate[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	got := make([]int, 0)
 
@@ -42,7 +46,11 @@ func TestUpdate_singleMessage(t *testing.T) {
 
 func TestUpdate_twoMessages(t *testing.T) {
 	f := feed.NewUpdate[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	got := make([]int, 0)
 
@@ -76,7 +84,11 @@ func TestUpdate_twoMessages(t *testing.T) {
 
 func TestUpdate_multipleSubscriptions(t *testing.T) {
 	f := feed.NewUpdate[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	got1 := make([]int, 0)
 	c1 := newCond()
@@ -146,7 +158,11 @@ func TestUpdate_multipleSubscriptions(t *testing.T) {
 
 func TestUpdate_multipleTopics(t *testing.T) {
 	f := feed.NewUpdate[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	got1 := make([]int, 0)
 	c1 := newCond()
@@ -214,7 +230,11 @@ func TestUpdate_shutdown(t *testing.T) {
 
 func TestUpdate_shutdownWithUnreadMessages(t *testing.T) {
 	f := feed.NewUpdate[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	c, _ := f.Subscribe("topic")
 
@@ -240,7 +260,11 @@ func TestUpdate_shutdownWithUnreadMessages(t *testing.T) {
 
 func TestUpdate_cancelWithUnreadMessages(t *testing.T) {
 	f := feed.NewUpdate[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	c, cancel := f.Subscribe("topic")
 
@@ -265,7 +289,11 @@ func TestUpdate_cancelWithUnreadMessages(t *testing.T) {
 
 func TestUpdate_latestMessage(t *testing.T) {
 	f := feed.NewUpdate[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	s, cancel := f.Subscribe("topic1")
 	defer cancel()
@@ -282,7 +310,11 @@ func TestUpdate_latestMessage(t *testing.T) {
 
 func TestUpdate_stressTest(t *testing.T) {
 	f := feed.NewUpdate[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	count := 1000
 	lastReceived := -1

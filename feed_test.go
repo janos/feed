@@ -17,7 +17,11 @@ import (
 
 func TestFeed_singleMessage(t *testing.T) {
 	f := feed.NewFeed[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	got := make([]int, 0)
 
@@ -44,7 +48,11 @@ func TestFeed_singleMessage(t *testing.T) {
 
 func TestFeed_twoMessages(t *testing.T) {
 	f := feed.NewFeed[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	got := make([]int, 0)
 
@@ -78,7 +86,11 @@ func TestFeed_twoMessages(t *testing.T) {
 
 func TestFeed_multipleSubscriptions(t *testing.T) {
 	f := feed.NewFeed[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	got1 := make([]int, 0)
 	c1 := newCond()
@@ -148,7 +160,11 @@ func TestFeed_multipleSubscriptions(t *testing.T) {
 
 func TestFeed_multipleTopics(t *testing.T) {
 	f := feed.NewFeed[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	got1 := make([]int, 0)
 	c1 := newCond()
@@ -216,7 +232,11 @@ func TestFeed_shutdown(t *testing.T) {
 
 func TestFeed_shutdownWithUnreadMessages(t *testing.T) {
 	f := feed.NewFeed[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	c, _ := f.Subscribe("topic")
 
@@ -242,7 +262,11 @@ func TestFeed_shutdownWithUnreadMessages(t *testing.T) {
 
 func TestFeed_cancelWithUnreadMessages(t *testing.T) {
 	f := feed.NewFeed[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	c, cancel := f.Subscribe("topic")
 
@@ -267,7 +291,11 @@ func TestFeed_cancelWithUnreadMessages(t *testing.T) {
 
 func TestFeed_ordering(t *testing.T) {
 	f := feed.NewFeed[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	got := make([]int, 0)
 
@@ -293,7 +321,11 @@ func TestFeed_ordering(t *testing.T) {
 
 func TestFeed_stressTest(t *testing.T) {
 	f := feed.NewFeed[string, int]()
-	defer f.Close()
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 
 	count := 1000
 	lastReceived := -1
